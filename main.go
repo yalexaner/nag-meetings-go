@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -9,8 +10,15 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joho/godotenv"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/robfig/cron/v3"
+)
+
+var (
+	db  *sql.DB
+	bot *tgbotapi.BotAPI
 )
 
 func main() {
@@ -24,12 +32,49 @@ func main() {
 		log.Fatal("CALENDAR_URL is not set in the .env file")
 	}
 
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if botToken == "" {
+		log.Fatal("TELEGRAM_BOT_TOKEN is not set in the .env file")
+	}
+
 	isDebug := os.Getenv("ENVIRONMENT") == "debug"
 
+	db, err = sql.Open("sqlite3", "subscribers.db")
+	if err != nil {
+		log.Fatalf("Error opening database: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS subscribers (user_id INTEGER PRIMARY KEY)`)
+	if err != nil {
+		log.Fatalf("Error creating table: %v", err)
+	}
+
+	bot, err = tgbotapi.NewBotAPI(botToken)
+	if err != nil {
+		log.Fatalf("Error initializing bot: %v", err)
+	}
+
+	bot.Debug = isDebug
+
+	log.Printf("Authorized on account %s", bot.Self.UserName)
+
+	u := tgbotapi.NewUpdate(0)
+	u.Timeout = 60
+
+	updates, err := bot.GetUpdatesChan(u)
+	if err != nil {
+		log.Fatalf("Error getting updates channel: %v", err)
+	}
+
+	// Start cron job
 	c := cron.New(cron.WithLocation(time.FixedZone("UTC+5", 5*60*60)))
 
 	_, err = c.AddFunc("20 10 * * 1-5", func() {
-		fetchAndParseMeetingURL(calendarURL, isDebug)
+		meetingURL := fetchAndParseMeetingURL(calendarURL, isDebug)
+		if meetingURL != "" {
+			sendMeetingURLToSubscribers(meetingURL)
+		}
 	})
 	if err != nil {
 		log.Fatalf("Error scheduling cron job: %v", err)
@@ -37,17 +82,61 @@ func main() {
 
 	c.Start()
 
-	// keep the program running
-	select {}
+	handleUpdates(updates)
 }
 
-func fetchAndParseMeetingURL(calendarURL string, isDebug bool) {
+func handleUpdates(updates tgbotapi.UpdatesChannel) {
+	for update := range updates {
+		if update.Message == nil {
+			continue
+		}
+
+		switch update.Message.Command() {
+		case "subscribe":
+			handleSubscribe(update.Message.Chat.ID)
+		case "unsubscribe":
+			handleUnsubscribe(update.Message.Chat.ID)
+		default:
+			sendMessage(update.Message.Chat.ID, "Unknown command. Available commands: /subscribe, /unsubscribe")
+		}
+	}
+}
+
+func handleSubscribe(chatID int64) {
+	_, err := db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", chatID)
+	if err != nil {
+		log.Printf("Error subscribing user: %v", err)
+		sendMessage(chatID, "Error subscribing. Please try again later.")
+		return
+	}
+	sendMessage(chatID, "You have been subscribed to meeting notifications.")
+}
+
+func handleUnsubscribe(chatID int64) {
+	_, err := db.Exec("DELETE FROM subscribers WHERE user_id = ?", chatID)
+	if err != nil {
+		log.Printf("Error unsubscribing user: %v", err)
+		sendMessage(chatID, "Error unsubscribing. Please try again later.")
+		return
+	}
+	sendMessage(chatID, "You have been unsubscribed from meeting notifications.")
+}
+
+func sendMessage(chatID int64, text string) {
+	msg := tgbotapi.NewMessage(chatID, text)
+	_, err := bot.Send(msg)
+	if err != nil {
+		log.Printf("Error sending message: %v", err)
+	}
+}
+
+func fetchAndParseMeetingURL(calendarURL string, isDebug bool) string {
 	var reader io.Reader
 	if isDebug {
 		file, err := os.Open("index.html")
 		if err != nil {
 			log.Printf("Error opening index.html: %v", err)
-			return
+			return ""
 		}
 		defer file.Close()
 
@@ -56,7 +145,7 @@ func fetchAndParseMeetingURL(calendarURL string, isDebug bool) {
 		resp, err := http.Get(calendarURL)
 		if err != nil {
 			log.Printf("Error fetching URL: %v", err)
-			return
+			return ""
 		}
 		defer resp.Body.Close()
 
@@ -66,7 +155,7 @@ func fetchAndParseMeetingURL(calendarURL string, isDebug bool) {
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
 		log.Printf("Error parsing HTML: %v", err)
-		return
+		return ""
 	}
 
 	var meetingURL string
@@ -84,9 +173,32 @@ func fetchAndParseMeetingURL(calendarURL string, isDebug bool) {
 		return false
 	})
 
-	if meetingURL != "" {
-		fmt.Printf("Video call URL: %s\n", meetingURL)
-	} else {
-		fmt.Println("No video call URL found.")
+	return meetingURL
+}
+
+func sendMeetingURLToSubscribers(meetingURL string) {
+	rows, err := db.Query("SELECT user_id FROM subscribers")
+	if err != nil {
+		log.Printf("Error querying subscribers: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var subscribers []int64
+	for rows.Next() {
+		var userID int64
+		err := rows.Scan(&userID)
+		if err != nil {
+			log.Printf("Error scanning user ID: %v", err)
+			continue
+		}
+		subscribers = append(subscribers, userID)
+	}
+
+	message := fmt.Sprintf("Today's meeting URL: %s", meetingURL)
+
+	for _, userID := range subscribers {
+		sendMessage(userID, message)
+		time.Sleep(time.Duration(1000/30) * time.Millisecond)
 	}
 }
