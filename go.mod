@@ -5,6 +5,7 @@ go 1.21.0
 require (
 	github.com/PuerkitoBio/goquery v1.9.2
 	github.com/joho/godotenv v1.5.1
+	github.com/robfig/cron/v3 v3.0.1
 )
 
 require (

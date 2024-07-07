@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/joho/godotenv"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -24,11 +26,28 @@ func main() {
 
 	isDebug := os.Getenv("ENVIRONMENT") == "debug"
 
+	c := cron.New(cron.WithLocation(time.FixedZone("UTC+5", 5*60*60)))
+
+	_, err = c.AddFunc("20 10 * * 1-5", func() {
+		fetchAndParseMeetingURL(calendarURL, isDebug)
+	})
+	if err != nil {
+		log.Fatalf("Error scheduling cron job: %v", err)
+	}
+
+	c.Start()
+
+	// keep the program running
+	select {}
+}
+
+func fetchAndParseMeetingURL(calendarURL string, isDebug bool) {
 	var reader io.Reader
 	if isDebug {
 		file, err := os.Open("index.html")
 		if err != nil {
-			log.Fatalf("Error opening index.html: %v", err)
+			log.Printf("Error opening index.html: %v", err)
+			return
 		}
 		defer file.Close()
 
@@ -36,7 +55,8 @@ func main() {
 	} else {
 		resp, err := http.Get(calendarURL)
 		if err != nil {
-			log.Fatalf("Error fetching URL: %v", err)
+			log.Printf("Error fetching URL: %v", err)
+			return
 		}
 		defer resp.Body.Close()
 
@@ -45,7 +65,8 @@ func main() {
 
 	doc, err := goquery.NewDocumentFromReader(reader)
 	if err != nil {
-		log.Fatalf("Error parsing HTML: %v", err)
+		log.Printf("Error parsing HTML: %v", err)
+		return
 	}
 
 	var meetingURL string
