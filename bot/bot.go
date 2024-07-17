@@ -46,6 +46,8 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 		}
 
 		switch update.Message.Command() {
+		case "start":
+			b.sendMessage(update.Message.Chat.ID, messages.Start)
 		case "subscribe":
 			b.handleSubscribe(update.Message.Chat.ID)
 		case "unsubscribe":
