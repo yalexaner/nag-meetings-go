@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/robfig/cron/v3"
+	"github.com/yalexaner/nag-meetings-go/messages"
 )
 
 var (
@@ -44,7 +44,7 @@ func main() {
 
 	isDebug := os.Getenv("ENVIRONMENT") == "debug"
 
-	db, err = sql.Open("sqlite3", workingDirectory + "subscribers.db")
+	db, err = sql.Open("sqlite3", workingDirectory+"subscribers.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
@@ -102,7 +102,7 @@ func handleUpdates(updates tgbotapi.UpdatesChannel) {
 		case "unsubscribe":
 			handleUnsubscribe(update.Message.Chat.ID)
 		default:
-			sendMessage(update.Message.Chat.ID, "Unknown command. Available commands: /subscribe, /unsubscribe")
+			sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
 		}
 	}
 }
@@ -111,20 +111,20 @@ func handleSubscribe(chatID int64) {
 	_, err := db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", chatID)
 	if err != nil {
 		log.Printf("Error subscribing user: %v", err)
-		sendMessage(chatID, "Error subscribing. Please try again later.")
+		sendMessage(chatID, messages.ErrorSubscribing)
 		return
 	}
-	sendMessage(chatID, "You have been subscribed to meeting notifications.")
+	sendMessage(chatID, messages.Subscribed)
 }
 
 func handleUnsubscribe(chatID int64) {
 	_, err := db.Exec("DELETE FROM subscribers WHERE user_id = ?", chatID)
 	if err != nil {
 		log.Printf("Error unsubscribing user: %v", err)
-		sendMessage(chatID, "Error unsubscribing. Please try again later.")
+		sendMessage(chatID, messages.ErrorUnsubscribing)
 		return
 	}
-	sendMessage(chatID, "You have been unsubscribed from meeting notifications.")
+	sendMessage(chatID, messages.Unsubscribed)
 }
 
 func sendMessage(chatID int64, text string) {
@@ -200,10 +200,8 @@ func sendMeetingURLToSubscribers(meetingURL string) {
 		subscribers = append(subscribers, userID)
 	}
 
-	message := fmt.Sprintf("Today's meeting URL: %s", meetingURL)
-
 	for _, userID := range subscribers {
-		sendMessage(userID, message)
+		sendMessage(userID, meetingURL)
 		time.Sleep(time.Duration(1000/30) * time.Millisecond)
 	}
 }
