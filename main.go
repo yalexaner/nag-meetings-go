@@ -37,9 +37,14 @@ func main() {
 		log.Fatal("TELEGRAM_BOT_TOKEN is not set in the .env file")
 	}
 
+	workingDirectory := os.Getenv("WORKING_DIRECTORY")
+	if workingDirectory == "" {
+		log.Fatal("WORKING_DIRECTORY is not set in the .env file")
+	}
+
 	isDebug := os.Getenv("ENVIRONMENT") == "debug"
 
-	db, err = sql.Open("sqlite3", "subscribers.db")
+	db, err = sql.Open("sqlite3", workingDirectory + "subscribers.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
