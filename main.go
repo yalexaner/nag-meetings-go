@@ -8,16 +8,10 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/robfig/cron/v3"
+	"github.com/yalexaner/nag-meetings-go/bot"
 	"github.com/yalexaner/nag-meetings-go/config"
 	"github.com/yalexaner/nag-meetings-go/database"
-	"github.com/yalexaner/nag-meetings-go/messages"
-)
-
-var (
-	db  *database.Database
-	bot *tgbotapi.BotAPI
 )
 
 func main() {
@@ -29,30 +23,17 @@ func main() {
 	}
 	defer db.Close()
 
-	bot, err = tgbotapi.NewBotAPI(cfg.TelegramBotToken)
+	tgbot, err := bot.NewBot(cfg.TelegramBotToken, db, cfg.IsDebug)
 	if err != nil {
 		log.Fatalf("Error initializing bot: %v", err)
 	}
 
-	bot.Debug = cfg.IsDebug
-
-	log.Printf("Authorized on account %s", bot.Self.UserName)
-
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-
-	updates, err := bot.GetUpdatesChan(u)
-	if err != nil {
-		log.Fatalf("Error getting updates channel: %v", err)
-	}
-
-	// Start cron job
 	c := cron.New(cron.WithLocation(time.FixedZone("UTC+5", 5*60*60)))
 
 	_, err = c.AddFunc("20 10 * * 1-5", func() {
 		meetingURL := fetchAndParseMeetingURL(cfg.CalendarURL, cfg.IsDebug)
 		if meetingURL != "" {
-			sendMeetingURLToSubscribers(meetingURL)
+			tgbot.SendMeetingURLToSubscribers(meetingURL)
 		}
 	})
 	if err != nil {
@@ -61,52 +42,7 @@ func main() {
 
 	c.Start()
 
-	handleUpdates(updates)
-}
-
-func handleUpdates(updates tgbotapi.UpdatesChannel) {
-	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
-
-		switch update.Message.Command() {
-		case "subscribe":
-			handleSubscribe(update.Message.Chat.ID)
-		case "unsubscribe":
-			handleUnsubscribe(update.Message.Chat.ID)
-		default:
-			sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
-		}
-	}
-}
-
-func handleSubscribe(chatID int64) {
-	if err := db.Subscribe(chatID); err != nil {
-		log.Printf("Error subscribing user: %v", err)
-		sendMessage(chatID, messages.ErrorSubscribing)
-		return
-	}
-
-	sendMessage(chatID, messages.Subscribed)
-}
-
-func handleUnsubscribe(chatID int64) {
-	if err := db.Unsubscribe(chatID); err != nil {
-		log.Printf("Error unsubscribing user: %v", err)
-		sendMessage(chatID, messages.ErrorUnsubscribing)
-		return
-	}
-
-	sendMessage(chatID, messages.Unsubscribed)
-}
-
-func sendMessage(chatID int64, text string) {
-	msg := tgbotapi.NewMessage(chatID, text)
-	_, err := bot.Send(msg)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-	}
+	tgbot.Start()
 }
 
 func fetchAndParseMeetingURL(calendarURL string, isDebug bool) string {
@@ -153,17 +89,4 @@ func fetchAndParseMeetingURL(calendarURL string, isDebug bool) string {
 	})
 
 	return meetingURL
-}
-
-func sendMeetingURLToSubscribers(meetingURL string) {
-	subscribers, err := db.GetSubscribers()
-	if err != nil {
-		log.Printf("Error querying subscribers: %v", err)
-		return
-	}
-
-	for _, userID := range subscribers {
-		sendMessage(userID, meetingURL)
-		time.Sleep(time.Duration(1000/30) * time.Millisecond)
-	}
 }
