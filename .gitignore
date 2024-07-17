@@ -1,2 +1,4 @@
 .env
 index.html
+/build
+*.db
