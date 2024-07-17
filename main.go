@@ -9,8 +9,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
+	"github.com/yalexaner/nag-meetings-go/config"
 	"github.com/yalexaner/nag-meetings-go/database"
 	"github.com/yalexaner/nag-meetings-go/messages"
 )
@@ -21,40 +21,20 @@ var (
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
-	}
+	cfg := config.LoadConfig()
 
-	calendarURL := os.Getenv("CALENDAR_URL")
-	if calendarURL == "" {
-		log.Fatal("CALENDAR_URL is not set in the .env file")
-	}
-
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if botToken == "" {
-		log.Fatal("TELEGRAM_BOT_TOKEN is not set in the .env file")
-	}
-
-	workingDirectory := os.Getenv("WORKING_DIRECTORY")
-	if workingDirectory == "" {
-		log.Fatal("WORKING_DIRECTORY is not set in the .env file")
-	}
-
-	isDebug := os.Getenv("ENVIRONMENT") == "debug"
-
-	db, err := database.NewDatabase(workingDirectory + "subscribers.db")
+	db, err := database.NewDatabase(cfg.WorkingDirectory + "subscribers.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
 	defer db.Close()
 
-	bot, err = tgbotapi.NewBotAPI(botToken)
+	bot, err = tgbotapi.NewBotAPI(cfg.TelegramBotToken)
 	if err != nil {
 		log.Fatalf("Error initializing bot: %v", err)
 	}
 
-	bot.Debug = isDebug
+	bot.Debug = cfg.IsDebug
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
@@ -70,7 +50,7 @@ func main() {
 	c := cron.New(cron.WithLocation(time.FixedZone("UTC+5", 5*60*60)))
 
 	_, err = c.AddFunc("20 10 * * 1-5", func() {
-		meetingURL := fetchAndParseMeetingURL(calendarURL, isDebug)
+		meetingURL := fetchAndParseMeetingURL(cfg.CalendarURL, cfg.IsDebug)
 		if meetingURL != "" {
 			sendMeetingURLToSubscribers(meetingURL)
 		}
