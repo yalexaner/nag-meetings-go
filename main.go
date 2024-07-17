@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"io"
 	"log"
 	"net/http"
@@ -11,13 +10,13 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/robfig/cron/v3"
+	"github.com/yalexaner/nag-meetings-go/database"
 	"github.com/yalexaner/nag-meetings-go/messages"
 )
 
 var (
-	db  *sql.DB
+	db  *database.Database
 	bot *tgbotapi.BotAPI
 )
 
@@ -44,16 +43,11 @@ func main() {
 
 	isDebug := os.Getenv("ENVIRONMENT") == "debug"
 
-	db, err = sql.Open("sqlite3", workingDirectory+"subscribers.db")
+	db, err := database.NewDatabase(workingDirectory + "subscribers.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
 	defer db.Close()
-
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS subscribers (user_id INTEGER PRIMARY KEY)`)
-	if err != nil {
-		log.Fatalf("Error creating table: %v", err)
-	}
 
 	bot, err = tgbotapi.NewBotAPI(botToken)
 	if err != nil {
@@ -108,22 +102,22 @@ func handleUpdates(updates tgbotapi.UpdatesChannel) {
 }
 
 func handleSubscribe(chatID int64) {
-	_, err := db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", chatID)
-	if err != nil {
+	if err := db.Subscribe(chatID); err != nil {
 		log.Printf("Error subscribing user: %v", err)
 		sendMessage(chatID, messages.ErrorSubscribing)
 		return
 	}
+
 	sendMessage(chatID, messages.Subscribed)
 }
 
 func handleUnsubscribe(chatID int64) {
-	_, err := db.Exec("DELETE FROM subscribers WHERE user_id = ?", chatID)
-	if err != nil {
+	if err := db.Unsubscribe(chatID); err != nil {
 		log.Printf("Error unsubscribing user: %v", err)
 		sendMessage(chatID, messages.ErrorUnsubscribing)
 		return
 	}
+
 	sendMessage(chatID, messages.Unsubscribed)
 }
 
@@ -182,22 +176,10 @@ func fetchAndParseMeetingURL(calendarURL string, isDebug bool) string {
 }
 
 func sendMeetingURLToSubscribers(meetingURL string) {
-	rows, err := db.Query("SELECT user_id FROM subscribers")
+	subscribers, err := db.GetSubscribers()
 	if err != nil {
 		log.Printf("Error querying subscribers: %v", err)
 		return
-	}
-	defer rows.Close()
-
-	var subscribers []int64
-	for rows.Next() {
-		var userID int64
-		err := rows.Scan(&userID)
-		if err != nil {
-			log.Printf("Error scanning user ID: %v", err)
-			continue
-		}
-		subscribers = append(subscribers, userID)
 	}
 
 	for _, userID := range subscribers {
