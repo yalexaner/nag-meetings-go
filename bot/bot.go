@@ -45,9 +45,18 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 			continue
 		}
 
+		if update.Message.Command() == "start" {
+			b.handleStart(update.Message.Chat.ID)
+			continue
+		}
+
+		isAuthorized := b.checkIsAuthorized(update.Message.Chat.ID)
+		if !isAuthorized {
+			b.sendMessage(update.Message.Chat.ID, messages.NotAuthorized)
+			continue
+		}
+
 		switch update.Message.Command() {
-		case "start":
-			b.sendMessage(update.Message.Chat.ID, messages.Start)
 		case "subscribe":
 			b.handleSubscribe(update.Message.Chat.ID)
 		case "unsubscribe":
@@ -55,6 +64,20 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 		default:
 			b.sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
 		}
+	}
+}
+
+func (b *Bot) checkIsAuthorized(chatId int64) bool {
+	isAuthorized, err := b.db.IsAuthorized(chatId)
+	if err != nil {
+		log.Printf("Error checking if user is authorized: %v", err)
+		return false
+	}
+
+	if isAuthorized == 1 {
+		return true
+	} else {
+		return false
 	}
 }
 

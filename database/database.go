@@ -41,6 +41,12 @@ func (d *Database) AddNewUser(userId int64) error {
 	return err
 }
 
+func (d *Database) IsAuthorized(userId int64) (int, error) {
+	var match int
+	err := d.db.QueryRow("SELECT CASE WHEN authorized = 1 THEN 1 ELSE 0 END FROM users WHERE user_id = ?", userId).Scan(&match)
+	return match, err
+}
+
 func (d *Database) Subscribe(userID int64) error {
 	_, err := d.db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", userID)
 	return err
