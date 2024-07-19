@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -41,48 +42,47 @@ func (b *Bot) Start() {
 
 func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 	for update := range updates {
-		if update.Message == nil {
-			continue
+		if update.Message != nil && update.Message.IsCommand() {
+
+			if update.Message.Command() == "start" {
+				name := fmt.Sprintf("%s %s", update.Message.From.FirstName, update.Message.From.LastName)
+				b.handleStartCommand(update.Message.Chat.ID, name)
+				continue
+			}
+
+			isAuthorized := b.checkIsAuthorized(update.Message.Chat.ID)
+			if !isAuthorized {
+				b.sendMessage(update.Message.Chat.ID, messages.NotAuthorized)
+				continue
+			}
+
+			switch update.Message.Command() {
+			case "admin":
+				b.handleAdminCommand(update.Message.Chat.ID)
+			case "subscribe":
+				b.handleSubscribeCommand(update.Message.Chat.ID)
+			case "unsubscribe":
+				b.handleUnsubscribeCommand(update.Message.Chat.ID)
+			default:
+				b.sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
+			}
+		} else if update.CallbackQuery != nil {
+			b.handleCallbackQuery(update.CallbackQuery)
 		}
-
-		switch update.Message.Command() {
-		case "start":
-			b.sendMessage(update.Message.Chat.ID, messages.Start)
-		case "subscribe":
-			b.handleSubscribe(update.Message.Chat.ID)
-		case "unsubscribe":
-			b.handleUnsubscribe(update.Message.Chat.ID)
-		default:
-			b.sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
-		}
 	}
 }
 
-func (b *Bot) handleSubscribe(chatID int64) {
-	if err := b.db.Subscribe(chatID); err != nil {
-		log.Printf("Error subscribing user: %v", err)
-		b.sendMessage(chatID, messages.ErrorSubscribing)
-		return
-	}
-
-	b.sendMessage(chatID, messages.Subscribed)
-}
-
-func (b *Bot) handleUnsubscribe(chatID int64) {
-	if err := b.db.Unsubscribe(chatID); err != nil {
-		log.Printf("Error unsubscribing user: %v", err)
-		b.sendMessage(chatID, messages.ErrorUnsubscribing)
-		return
-	}
-
-	b.sendMessage(chatID, messages.Unsubscribed)
-}
-
-func (b *Bot) sendMessage(chatID int64, text string) {
-	msg := tgbotapi.NewMessage(chatID, text)
-	_, err := b.api.Send(msg)
+func (b *Bot) checkIsAuthorized(chatId int64) bool {
+	isAuthorized, err := b.db.IsAuthorized(chatId)
 	if err != nil {
-		log.Printf("Error sending message: %v", err)
+		log.Printf("Error checking if user is authorized: %v", err)
+		return false
+	}
+
+	if isAuthorized == 1 {
+		return true
+	} else {
+		return false
 	}
 }
 

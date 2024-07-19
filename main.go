@@ -14,7 +14,7 @@ import (
 func main() {
 	cfg := config.LoadConfig()
 
-	db, err := database.NewDatabase(cfg.WorkingDirectory + "subscribers.db")
+	db, err := database.NewDatabase(cfg.WorkingDirectory + "main.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
