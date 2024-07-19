@@ -47,6 +47,12 @@ func (d *Database) IsAuthorized(userId int64) (int, error) {
 	return match, err
 }
 
+func (d *Database) IsAdmin(userId int64) (int, error) {
+	var match int
+	err := d.db.QueryRow("SELECT CASE WHEN admin = 1 THEN 1 ELSE 0 END FROM users WHERE user_id = ?", userId).Scan(&match)
+	return match, err
+}
+
 func (d *Database) Subscribe(userId int64) error {
 	_, err := d.db.Exec("UPDATE users SET subscribed = 1 WHERE user_id = ?", userId)
 	return err
@@ -54,6 +60,11 @@ func (d *Database) Subscribe(userId int64) error {
 
 func (d *Database) Unsubscribe(userId int64) error {
 	_, err := d.db.Exec("UPDATE users SET subscribed = 0 WHERE user_id = ?", userId)
+	return err
+}
+
+func (d *Database) ChangeAuthorization(userId int64, authorized bool) error {
+	_, err := d.db.Exec("UPDATE users SET authorized = ? WHERE user_id = ?", authorized, userId)
 	return err
 }
 
@@ -76,4 +87,23 @@ func (d *Database) GetSubscribers() ([]int64, error) {
 	}
 
 	return subscribers, nil
+}
+
+func (d *Database) GetAnyUnauthorizedUser() (int64, error) {
+	rows, err := d.db.Query("SELECT user_id FROM users WHERE authorized = 0 LIMIT 1")
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	var userID int64
+	if rows.Next() {
+		err = rows.Scan(&userID)
+		if err != nil {
+			return 0, err
+		}
+		return userID, nil
+	}
+
+	return -1, nil
 }
