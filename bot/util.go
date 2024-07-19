@@ -20,7 +20,7 @@ func (b *Bot) editMessage(chatId int64, messageId int, text string) {
 	editMsg := tgbotapi.NewEditMessageText(chatId, messageId, text)
 	_, err := b.api.Send(editMsg)
 	if err != nil {
-		log.Println("Error editing message: %v", err)
+		log.Printf("Error editing message: %v", err)
 	}
 }
 
