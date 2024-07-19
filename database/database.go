@@ -17,7 +17,14 @@ func NewDatabase(dbPath string) (*Database, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS subscribers (user_id INTEGER PRIMARY KEY)`)
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS users (
+			user_id INTEGER PRIMARY KEY,
+			authorized INTEGER NOT NULL DEFAULT 0,
+			admin INTEGER NOT NULL DEFAULT 0,
+			subscribed INTEGER NOT NULL DEFAULT 0
+		)
+	`)
 	if err != nil {
 		return nil, err
 	}
