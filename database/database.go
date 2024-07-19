@@ -36,6 +36,11 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
+func (d *Database) AddNewUser(userId int64) error {
+	_, err := d.db.Exec("INSERT OR IGNORE INTO users (user_id) VALUES (?)", userId)
+	return err
+}
+
 func (d *Database) Subscribe(userID int64) error {
 	_, err := d.db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", userID)
 	return err

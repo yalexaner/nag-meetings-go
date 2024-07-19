@@ -58,6 +58,15 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 	}
 }
 
+func (b *Bot) handleStart(chatId int64) {
+	if err := b.db.AddNewUser(chatId); err != nil {
+		log.Printf("Error adding new user: %v", err)
+		return
+	}
+
+	b.sendMessage(chatId, messages.Start)
+}
+
 func (b *Bot) handleSubscribe(chatID int64) {
 	if err := b.db.Subscribe(chatID); err != nil {
 		log.Printf("Error subscribing user: %v", err)
