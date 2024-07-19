@@ -22,21 +22,31 @@ func (b *Bot) handleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		return
 	}
 
-	var value bool
+	var shouldAuthorize bool
 	if parts[1] == "1" {
-		value = true
+		shouldAuthorize = true
 	} else {
-		value = false
+		shouldAuthorize = false
 	}
 
-	err = b.db.ChangeAuthorization(id, value)
-	if err != nil {
-		log.Println("Error processing row data:", err)
-		callback := tgbotapi.NewCallbackWithAlert(query.ID, messages.ChangeAuthorizationErrror)
-		if _, err := b.api.AnswerCallbackQuery(callback); err != nil {
-			log.Println("Error answering callback query:", err)
+	if shouldAuthorize {
+		if err := b.db.AuthorizeUser(id); err != nil {
+			log.Println("Error authorizing user:", err)
+			callback := tgbotapi.NewCallbackWithAlert(query.ID, messages.AuthorizeUserError)
+			if _, err := b.api.AnswerCallbackQuery(callback); err != nil {
+				log.Println("Error answering callback query:", err)
+			}
+			return
 		}
-		return
+	} else {
+		if err := b.db.RemoveUser(id); err != nil {
+			log.Println("Error unauthorizing user:", err)
+			callback := tgbotapi.NewCallbackWithAlert(query.ID, messages.RemoveUserError)
+			if _, err := b.api.AnswerCallbackQuery(callback); err != nil {
+				log.Println("Error answering callback query:", err)
+			}
+			return
+		}
 	}
 
 	unauthorizedUserId, err := b.db.GetAnyUnauthorizedUser()
@@ -48,10 +58,9 @@ func (b *Bot) handleCallbackQuery(query *tgbotapi.CallbackQuery) {
 
 	if unauthorizedUserId == -1 {
 		b.editMessage(query.Message.Chat.ID, query.Message.MessageID, messages.AllUsersAuthorized)
-		return
+	} else {
+		b.editMessageWithButtons(query.Message.Chat.ID, query.Message.MessageID, unauthorizedUserId)
 	}
-
-	b.editMessageWithButtons(query.Message.Chat.ID, query.Message.MessageID, unauthorizedUserId)
 
 	callback := tgbotapi.NewCallback(query.ID, "")
 	if _, err := b.api.AnswerCallbackQuery(callback); err != nil {

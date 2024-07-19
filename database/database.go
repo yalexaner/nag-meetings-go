@@ -63,8 +63,13 @@ func (d *Database) Unsubscribe(userId int64) error {
 	return err
 }
 
-func (d *Database) ChangeAuthorization(userId int64, authorized bool) error {
-	_, err := d.db.Exec("UPDATE users SET authorized = ? WHERE user_id = ?", authorized, userId)
+func (d *Database) AuthorizeUser(userId int64) error {
+	_, err := d.db.Exec("UPDATE users SET authorized = 1 WHERE user_id = ?", userId)
+	return err
+}
+
+func (d *Database) RemoveUser(userId int64) error {
+	_, err := d.db.Exec("DELETE FROM users WHERE user_id = ?", userId)
 	return err
 }
 
