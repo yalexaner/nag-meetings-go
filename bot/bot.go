@@ -41,28 +41,31 @@ func (b *Bot) Start() {
 
 func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 	for update := range updates {
-		if update.Message == nil {
-			continue
-		}
+		if update.Message != nil && update.Message.IsCommand() {
 
-		if update.Message.Command() == "start" {
-			b.handleStart(update.Message.Chat.ID)
-			continue
-		}
+			if update.Message.Command() == "start" {
+				b.handleStartCommand(update.Message.Chat.ID)
+				continue
+			}
 
-		isAuthorized := b.checkIsAuthorized(update.Message.Chat.ID)
-		if !isAuthorized {
-			b.sendMessage(update.Message.Chat.ID, messages.NotAuthorized)
-			continue
-		}
+			isAuthorized := b.checkIsAuthorized(update.Message.Chat.ID)
+			if !isAuthorized {
+				b.sendMessage(update.Message.Chat.ID, messages.NotAuthorized)
+				continue
+			}
 
-		switch update.Message.Command() {
-		case "subscribe":
-			b.handleSubscribe(update.Message.Chat.ID)
-		case "unsubscribe":
-			b.handleUnsubscribe(update.Message.Chat.ID)
-		default:
-			b.sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
+			switch update.Message.Command() {
+			case "admin":
+				b.handleAdminCommand(update.Message.Chat.ID)
+			case "subscribe":
+				b.handleSubscribeCommand(update.Message.Chat.ID)
+			case "unsubscribe":
+				b.handleUnsubscribeCommand(update.Message.Chat.ID)
+			default:
+				b.sendMessage(update.Message.Chat.ID, messages.UnknownCommand)
+			}
+		} else if update.CallbackQuery != nil {
+			b.handleCallbackQuery(update.CallbackQuery)
 		}
 	}
 }
@@ -78,43 +81,6 @@ func (b *Bot) checkIsAuthorized(chatId int64) bool {
 		return true
 	} else {
 		return false
-	}
-}
-
-func (b *Bot) handleStart(chatId int64) {
-	if err := b.db.AddNewUser(chatId); err != nil {
-		log.Printf("Error adding new user: %v", err)
-		return
-	}
-
-	b.sendMessage(chatId, messages.Start)
-}
-
-func (b *Bot) handleSubscribe(chatID int64) {
-	if err := b.db.Subscribe(chatID); err != nil {
-		log.Printf("Error subscribing user: %v", err)
-		b.sendMessage(chatID, messages.ErrorSubscribing)
-		return
-	}
-
-	b.sendMessage(chatID, messages.Subscribed)
-}
-
-func (b *Bot) handleUnsubscribe(chatID int64) {
-	if err := b.db.Unsubscribe(chatID); err != nil {
-		log.Printf("Error unsubscribing user: %v", err)
-		b.sendMessage(chatID, messages.ErrorUnsubscribing)
-		return
-	}
-
-	b.sendMessage(chatID, messages.Unsubscribed)
-}
-
-func (b *Bot) sendMessage(chatID int64, text string) {
-	msg := tgbotapi.NewMessage(chatID, text)
-	_, err := b.api.Send(msg)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
 	}
 }
 
