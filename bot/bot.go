@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -44,7 +45,8 @@ func (b *Bot) handleUpdates(updates tgbotapi.UpdatesChannel) {
 		if update.Message != nil && update.Message.IsCommand() {
 
 			if update.Message.Command() == "start" {
-				b.handleStartCommand(update.Message.Chat.ID)
+				name := fmt.Sprintf("%s %s", update.Message.From.FirstName, update.Message.From.LastName)
+				b.handleStartCommand(update.Message.Chat.ID, name)
 				continue
 			}
 

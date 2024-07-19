@@ -6,8 +6,8 @@ import (
 	"github.com/yalexaner/nag-meetings-go/messages"
 )
 
-func (b *Bot) handleStartCommand(chatId int64) {
-	if err := b.db.AddNewUser(chatId); err != nil {
+func (b *Bot) handleStartCommand(chatId int64, name string) {
+	if err := b.db.AddNewUser(chatId, name); err != nil {
 		log.Printf("Error adding new user: %v", err)
 		return
 	}

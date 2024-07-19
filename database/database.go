@@ -20,6 +20,7 @@ func NewDatabase(dbPath string) (*Database, error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			user_id INTEGER PRIMARY KEY,
+			name TEXT NOT NULL,
 			authorized INTEGER NOT NULL DEFAULT 0,
 			admin INTEGER NOT NULL DEFAULT 0,
 			subscribed INTEGER NOT NULL DEFAULT 0
@@ -36,8 +37,8 @@ func (d *Database) Close() error {
 	return d.db.Close()
 }
 
-func (d *Database) AddNewUser(userId int64) error {
-	_, err := d.db.Exec("INSERT OR IGNORE INTO users (user_id) VALUES (?)", userId)
+func (d *Database) AddNewUser(userId int64, name string) error {
+	_, err := d.db.Exec("INSERT OR IGNORE INTO users (user_id, name) VALUES (?, ?)", userId, name)
 	return err
 }
 
