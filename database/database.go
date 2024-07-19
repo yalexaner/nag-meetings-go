@@ -47,18 +47,18 @@ func (d *Database) IsAuthorized(userId int64) (int, error) {
 	return match, err
 }
 
-func (d *Database) Subscribe(userID int64) error {
-	_, err := d.db.Exec("INSERT OR IGNORE INTO subscribers (user_id) VALUES (?)", userID)
+func (d *Database) Subscribe(userId int64) error {
+	_, err := d.db.Exec("UPDATE users SET subscribed = 1 WHERE user_id = ?", userId)
 	return err
 }
 
-func (d *Database) Unsubscribe(userID int64) error {
-	_, err := d.db.Exec("DELETE FROM subscribers WHERE user_id = ?", userID)
+func (d *Database) Unsubscribe(userId int64) error {
+	_, err := d.db.Exec("UPDATE users SET subscribed = 0 WHERE user_id = ?", userId)
 	return err
 }
 
 func (d *Database) GetSubscribers() ([]int64, error) {
-	rows, err := d.db.Query("SELECT user_id FROM subscribers")
+	rows, err := d.db.Query("SELECT user_id FROM users WHERE subscribed = 1")
 	if err != nil {
 		return nil, err
 	}
