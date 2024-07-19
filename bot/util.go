@@ -5,6 +5,7 @@ import (
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"github.com/yalexaner/nag-meetings-go/database"
 	"github.com/yalexaner/nag-meetings-go/messages"
 )
 
@@ -24,15 +25,20 @@ func (b *Bot) editMessage(chatId int64, messageId int, text string) {
 	}
 }
 
-func (b *Bot) sendMessageWithButtons(chatId int64, unauthorizedUserId int64) {
+func (b *Bot) sendMessageWithButtons(chatId int64, user *database.User) {
+	if user == nil {
+		log.Println("User to be send is nil")
+		return
+	}
+
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(messages.Yes, fmt.Sprintf("%d_1", unauthorizedUserId)),
-			tgbotapi.NewInlineKeyboardButtonData(messages.No, fmt.Sprintf("%d_0", unauthorizedUserId)),
+			tgbotapi.NewInlineKeyboardButtonData(messages.Yes, fmt.Sprintf("%d_1", user.UserID)),
+			tgbotapi.NewInlineKeyboardButtonData(messages.No, fmt.Sprintf("%d_0", user.UserID)),
 		),
 	)
 
-	msg := tgbotapi.NewMessage(chatId, messages.AuthorizeUserQuestion)
+	msg := tgbotapi.NewMessage(chatId, fmt.Sprintf(messages.AuthorizeUserQuestion, user.Name))
 	msg.ReplyMarkup = keyboard
 
 	_, err := b.api.Send(msg)
@@ -41,15 +47,20 @@ func (b *Bot) sendMessageWithButtons(chatId int64, unauthorizedUserId int64) {
 	}
 }
 
-func (b *Bot) editMessageWithButtons(chatId int64, messageId int, unauthorizedUserId int64) {
+func (b *Bot) editMessageWithButtons(chatId int64, messageId int, user *database.User) {
+	if user == nil {
+		log.Println("User to be send is nil")
+		return
+	}
+
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData(messages.Yes, fmt.Sprintf("%d_1", unauthorizedUserId)),
-			tgbotapi.NewInlineKeyboardButtonData(messages.No, fmt.Sprintf("%d_0", unauthorizedUserId)),
+			tgbotapi.NewInlineKeyboardButtonData(messages.Yes, fmt.Sprintf("%d_1", user.UserID)),
+			tgbotapi.NewInlineKeyboardButtonData(messages.No, fmt.Sprintf("%d_0", user.UserID)),
 		),
 	)
 
-	editMsg := tgbotapi.NewEditMessageText(chatId, messageId, messages.AuthorizeUserQuestion)
+	editMsg := tgbotapi.NewEditMessageText(chatId, messageId, fmt.Sprintf(messages.AuthorizeUserQuestion, user.Name))
 	editMsg.ReplyMarkup = &keyboard
 
 	_, err := b.api.Send(editMsg)

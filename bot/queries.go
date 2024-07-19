@@ -49,17 +49,17 @@ func (b *Bot) handleCallbackQuery(query *tgbotapi.CallbackQuery) {
 		}
 	}
 
-	unauthorizedUserId, err := b.db.GetAnyUnauthorizedUser()
+	user, err := b.db.GetAnyUnauthorizedUser()
 	if err != nil {
 		log.Println("Error fetching row from database:", err)
 		b.sendMessage(query.Message.Chat.ID, messages.GetUnathorizedUsersError)
 		return
 	}
 
-	if unauthorizedUserId == -1 {
+	if user == nil {
 		b.editMessage(query.Message.Chat.ID, query.Message.MessageID, messages.AllUsersAuthorized)
 	} else {
-		b.editMessageWithButtons(query.Message.Chat.ID, query.Message.MessageID, unauthorizedUserId)
+		b.editMessageWithButtons(query.Message.Chat.ID, query.Message.MessageID, user)
 	}
 
 	callback := tgbotapi.NewCallback(query.ID, "")

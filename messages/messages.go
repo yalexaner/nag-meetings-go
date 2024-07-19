@@ -11,7 +11,7 @@ const (
 	UnknownError             = "Произошла какая-то ошибка"
 	AllUsersAuthorized       = "Все пользователи авторизованы"
 	GetUnathorizedUsersError = "Не удалось получить список неавторизованных пользователей"
-	AuthorizeUserQuestion    = "Авторизовать пользователя?"
+	AuthorizeUserQuestion    = "Пользователь %s хочеть авторизоваться. Авторизовать этого пользователя?"
 	Yes                      = "Да"
 	No                       = "Нет"
 	AuthorizeUserError       = "Не удалось авторизовать пользователя"

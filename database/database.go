@@ -95,21 +95,27 @@ func (d *Database) GetSubscribers() ([]int64, error) {
 	return subscribers, nil
 }
 
-func (d *Database) GetAnyUnauthorizedUser() (int64, error) {
-	rows, err := d.db.Query("SELECT user_id FROM users WHERE authorized = 0 LIMIT 1")
+func (d *Database) GetAnyUnauthorizedUser() (*User, error) {
+	rows, err := d.db.Query("SELECT user_id, name, authorized, admin, subscribed FROM users WHERE authorized = 0 LIMIT 1")
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	var userID int64
 	if rows.Next() {
-		err = rows.Scan(&userID)
+		var user User
+		err := rows.Scan(
+			&user.UserID,
+			&user.Name,
+			&user.Authorized,
+			&user.Admin,
+			&user.Subscribed,
+		)
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
-		return userID, nil
+		return &user, nil
 	}
 
-	return -1, nil
+	return nil, nil
 }

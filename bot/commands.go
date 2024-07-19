@@ -48,17 +48,17 @@ func (b *Bot) handleAdminCommand(chatId int64) {
 		return
 	}
 
-	unauthorizedUserId, err := b.db.GetAnyUnauthorizedUser()
+	user, err := b.db.GetAnyUnauthorizedUser()
 	if err != nil {
 		log.Println("Error fetching row from database:", err)
 		b.sendMessage(chatId, messages.GetUnathorizedUsersError)
 		return
 	}
 
-	if unauthorizedUserId == -1 {
+	if user == nil {
 		b.sendMessage(chatId, messages.AllUsersAuthorized)
 		return
 	}
 
-	b.sendMessageWithButtons(chatId, unauthorizedUserId)
+	b.sendMessageWithButtons(chatId, user)
 }
