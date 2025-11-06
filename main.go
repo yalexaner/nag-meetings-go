@@ -28,7 +28,7 @@ func main() {
 	c := cron.New(cron.WithLocation(time.FixedZone("UTC+5", 5*60*60)))
 
 	_, err = c.AddFunc("20 10 * * 1-5", func() {
-		meetingURL := parser.FetchMeetingURL(cfg.CalendarURL, cfg.IsDebug)
+		meetingURL := parser.FetchMeetingURL(cfg.CalendarURL, cfg.IsDebug, cfg.Parser)
 		if meetingURL != "" {
 			tgbot.SendMeetingURLToSubscribers(meetingURL)
 		}

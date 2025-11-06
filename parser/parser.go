@@ -7,9 +7,10 @@ import (
 	"os"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/yalexaner/nag-meetings-go/config"
 )
 
-func FetchMeetingURL(calendarURL string, isDebug bool) string {
+func FetchMeetingURL(calendarURL string, isDebug bool, parserConfig config.ParserConfig) string {
 	var reader io.Reader
 	if isDebug {
 		file, err := os.Open("index.html")
@@ -38,14 +39,14 @@ func FetchMeetingURL(calendarURL string, isDebug bool) string {
 	}
 
 	var meetingURL string
-	doc.Find(".b-content-event").EachWithBreak(func(i int, s *goquery.Selection) bool {
-		if s.Find("h1").Text() != "STB Daily Meeting" {
+	doc.Find(parserConfig.EventSelector).EachWithBreak(func(i int, s *goquery.Selection) bool {
+		if s.Find(parserConfig.TitleSelector).Text() != parserConfig.MeetingName {
 			return true
 		}
 
-		s.Find(".e-description a").Each(func(i int, a *goquery.Selection) {
+		s.Find(parserConfig.LinkSelector).Each(func(i int, a *goquery.Selection) {
 			if meetingURL == "" {
-				meetingURL, _ = a.Attr("href")
+				meetingURL, _ = a.Attr(parserConfig.LinkAttribute)
 			}
 		})
 
